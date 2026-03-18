@@ -1,0 +1,1537 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>КаргоМаршрут — Расчёт стоимости доставки</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #161920;
+    --surface2: #1e2230;
+    --surface3: #252a3a;
+    --border: #2a3050;
+    --accent: #f5a623;
+    --accent2: #ff6b35;
+    --text: #e8eaf2;
+    --text-muted: #7a82a0;
+    --text-dim: #4a5270;
+    --success: #2ecc71;
+    --danger: #e74c3c;
+    --info: #3498db;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Manrope', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* BACKGROUND GRID */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(245,166,35,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(245,166,35,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ======== PAGES ======== */
+  .page { display: none; position: relative; z-index: 1; }
+  .page.active { display: block; }
+
+  /* ======== AUTH ======== */
+  .auth-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .auth-box {
+    width: 100%;
+    max-width: 440px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .auth-box::before {
+    content: '';
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(245,166,35,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .auth-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 42px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+
+  .auth-logo span { color: var(--text-muted); font-size: 14px; display: block; font-family: 'Manrope', sans-serif; letter-spacing: 1px; font-weight: 500; margin-top: -4px; }
+
+  .auth-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+    margin: 28px 0 24px;
+  }
+
+  .auth-tab {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: 'Manrope', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all .2s;
+  }
+
+  .auth-tab.active {
+    background: var(--accent);
+    color: #000;
+  }
+
+  .auth-form { display: none; }
+  .auth-form.active { display: block; }
+
+  .field {
+    margin-bottom: 16px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 7px;
+  }
+
+  .field input, .field select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'Manrope', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color .2s;
+  }
+
+  .field input:focus, .field select:focus {
+    border-color: var(--accent);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 13px 24px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: 'Manrope', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all .2s;
+    text-decoration: none;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    width: 100%;
+  }
+
+  .btn-primary:hover { background: #e09415; transform: translateY(-1px); }
+
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-danger {
+    background: rgba(231,76,60,0.15);
+    border: 1px solid rgba(231,76,60,0.3);
+    color: var(--danger);
+  }
+
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+
+  .error-msg {
+    background: rgba(231,76,60,0.12);
+    border: 1px solid rgba(231,76,60,0.3);
+    color: #ff8070;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    margin-bottom: 14px;
+    display: none;
+  }
+
+  /* ======== NAVBAR ======== */
+  .navbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(13,15,20,0.9);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .nav-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    cursor: pointer;
+  }
+
+  .nav-logo span { color: var(--text-muted); }
+
+  .nav-links { display: flex; align-items: center; gap: 8px; }
+
+  .nav-btn {
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    border: none;
+    font-family: 'Manrope', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all .2s;
+    background: transparent;
+    color: var(--text-muted);
+  }
+
+  .nav-btn:hover { color: var(--text); background: var(--surface2); }
+  .nav-btn.active { color: var(--accent); }
+
+  .nav-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 40px;
+    cursor: pointer;
+    transition: all .2s;
+  }
+
+  .nav-user:hover { border-color: var(--accent); }
+
+  .nav-avatar {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800;
+    font-size: 12px;
+    color: #000;
+  }
+
+  .nav-username { font-size: 13px; font-weight: 600; }
+
+  /* ======== MAIN LAYOUT ======== */
+  .main-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 20px;
+  }
+
+  /* ======== HERO ======== */
+  .hero {
+    text-align: center;
+    padding: 40px 0 32px;
+  }
+
+  .hero-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(48px, 8vw, 90px);
+    letter-spacing: 4px;
+    line-height: 0.95;
+    color: var(--text);
+    margin-bottom: 14px;
+  }
+
+  .hero-title span {
+    color: var(--accent);
+    display: inline-block;
+  }
+
+  .hero-sub {
+    color: var(--text-muted);
+    font-size: 15px;
+    max-width: 400px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* ======== CALCULATOR LAYOUT ======== */
+  .calc-layout {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 24px;
+    align-items: start;
+  }
+
+  @media (max-width: 860px) {
+    .calc-layout { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+  }
+
+  .card-title {
+    font-weight: 800;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title::before {
+    content: '';
+    display: block;
+    width: 3px; height: 16px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  /* Dimensions grid */
+  .dims-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .input-group {
+    position: relative;
+  }
+
+  .input-group label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .input-group input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 11px 38px 11px 12px;
+    color: var(--text);
+    font-family: 'Manrope', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    outline: none;
+    transition: border-color .2s, background .2s;
+  }
+
+  .input-group input:focus {
+    border-color: var(--accent);
+    background: var(--surface3);
+  }
+
+  .input-unit {
+    position: absolute;
+    right: 10px;
+    bottom: 11px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dim);
+    pointer-events: none;
+  }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  /* Urgency */
+  .urgency-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .urgency-btn {
+    flex: 1;
+    min-width: 80px;
+    padding: 10px 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-family: 'Manrope', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .2s;
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  .urgency-btn .urg-mult {
+    display: block;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .urgency-btn:hover { border-color: var(--accent); color: var(--text); }
+
+  .urgency-btn.selected {
+    background: rgba(245,166,35,0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .urgency-btn.selected .urg-mult { color: rgba(245,166,35,0.6); }
+
+  /* ======== RESULT CARD ======== */
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    position: sticky;
+    top: 88px;
+  }
+
+  .price-display {
+    text-align: center;
+    padding: 20px 0;
+  }
+
+  .price-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  .price-amount {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 64px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    line-height: 1;
+    transition: all .3s;
+  }
+
+  .price-currency {
+    font-size: 28px;
+    color: var(--text-muted);
+  }
+
+  .price-breakdown {
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    margin: 16px 0;
+    font-size: 12px;
+  }
+
+  .breakdown-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+
+  .breakdown-row:last-child { border-bottom: none; }
+
+  .breakdown-row .val { font-weight: 700; color: var(--text); }
+
+  .discount-badge {
+    background: rgba(46,204,113,0.15);
+    border: 1px solid rgba(46,204,113,0.3);
+    color: var(--success);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    display: inline-block;
+    margin-bottom: 12px;
+  }
+
+  /* PROMO */
+  .promo-section {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .promo-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: 'Manrope', sans-serif;
+    font-size: 13px;
+    outline: none;
+    transition: border-color .2s;
+  }
+
+  .promo-input:focus { border-color: var(--accent); }
+
+  .btn-sm {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  /* ======== LOYALTY ======== */
+  .loyalty-bar {
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    height: 6px;
+    margin: 8px 0 4px;
+  }
+
+  .loyalty-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 3px;
+    transition: width .4s ease;
+  }
+
+  .loyalty-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* ======== PROFILE PAGE ======== */
+  .profile-grid {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  @media (max-width: 860px) {
+    .profile-grid { grid-template-columns: 1fr; }
+  }
+
+  .profile-avatar-big {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    color: #000;
+    margin: 0 auto 16px;
+  }
+
+  .profile-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 2px;
+    text-align: center;
+  }
+
+  .profile-email {
+    font-size: 13px;
+    color: var(--text-muted);
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  .tier-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  .tier-new { background: rgba(52,152,219,0.15); border: 1px solid rgba(52,152,219,0.3); color: var(--info); }
+  .tier-regular { background: rgba(245,166,35,0.15); border: 1px solid rgba(245,166,35,0.3); color: var(--accent); }
+  .tier-vip { background: rgba(255,107,53,0.15); border: 1px solid rgba(255,107,53,0.3); color: var(--accent2); }
+
+  /* Promo codes */
+  .promo-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .promo-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .promo-code {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 2px;
+    color: var(--accent);
+  }
+
+  .promo-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  .promo-discount {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    color: var(--success);
+  }
+
+  .promo-expired {
+    opacity: 0.4;
+    text-decoration: line-through;
+  }
+
+  .promo-used {
+    opacity: 0.5;
+  }
+
+  /* ======== HISTORY ======== */
+  .history-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .history-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 14px;
+    align-items: center;
+    animation: slideIn .3s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .history-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    color: var(--text-dim);
+    min-width: 32px;
+    text-align: center;
+  }
+
+  .history-info { }
+  .history-dims { font-size: 13px; font-weight: 600; color: var(--text); }
+  .history-meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+
+  .history-price {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  /* ======== TOAST ======== */
+  .toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .toast {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 250px;
+    animation: toastIn .3s ease;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .toast.success { border-left: 3px solid var(--success); }
+  .toast.error { border-left: 3px solid var(--danger); }
+  .toast.info { border-left: 3px solid var(--accent); }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-dim);
+  }
+
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 2px;
+  }
+
+  .tag {
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    background: var(--surface3);
+    color: var(--text-muted);
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 24px 0;
+  }
+
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    padding: 6px 0;
+  }
+
+  .info-row .label { color: var(--text-muted); }
+  .info-row .value { font-weight: 700; }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .stat-box {
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    text-align: center;
+  }
+
+  .stat-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .stat-lbl {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<!-- AUTH PAGE -->
+<div class="page active" id="page-auth">
+  <div class="auth-wrap">
+    <div class="auth-box">
+      <div class="auth-logo">КаргоМаршрут<span>Система расчёта доставки</span></div>
+      <div class="auth-tabs">
+        <button class="auth-tab active" onclick="switchAuthTab('login')">Войти</button>
+        <button class="auth-tab" onclick="switchAuthTab('register')">Регистрация</button>
+      </div>
+
+      <!-- LOGIN -->
+      <div class="auth-form active" id="form-login">
+        <div class="error-msg" id="login-error"></div>
+        <div class="field">
+          <label>Email</label>
+          <input type="email" id="login-email" placeholder="your@email.com">
+        </div>
+        <div class="field">
+          <label>Пароль</label>
+          <input type="password" id="login-pass" placeholder="••••••••">
+        </div>
+        <button class="btn btn-primary" onclick="doLogin()">Войти в систему</button>
+      </div>
+
+      <!-- REGISTER -->
+      <div class="auth-form" id="form-register">
+        <div class="error-msg" id="reg-error"></div>
+        <div class="field">
+          <label>Имя</label>
+          <input type="text" id="reg-name" placeholder="Иван Петров">
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input type="email" id="reg-email" placeholder="your@email.com">
+        </div>
+        <div class="field">
+          <label>Пароль</label>
+          <input type="password" id="reg-pass" placeholder="Минимум 6 символов">
+        </div>
+        <button class="btn btn-primary" onclick="doRegister()">Создать аккаунт</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP PAGE -->
+<div class="page" id="page-app">
+  <nav class="navbar">
+    <div class="nav-logo" onclick="showSection('calculator')">Карго<span>Маршрут</span></div>
+    <div class="nav-links">
+      <button class="nav-btn active" id="nav-calc" onclick="showSection('calculator')">Калькулятор</button>
+      <button class="nav-btn" id="nav-profile" onclick="showSection('profile')">Профиль</button>
+      <div class="nav-user" onclick="showSection('profile')">
+        <div class="nav-avatar" id="nav-avatar">?</div>
+        <span class="nav-username" id="nav-username">Пользователь</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- CALCULATOR SECTION -->
+  <div class="main-container" id="section-calculator">
+    <div class="hero">
+      <div class="hero-title">Рассчитай<br><span>доставку</span></div>
+      <p class="hero-sub">Введите параметры груза и получите точную стоимость перевозки с учётом скидок</p>
+    </div>
+
+    <div class="calc-layout">
+      <!-- LEFT: Inputs -->
+      <div>
+        <!-- Dimensions -->
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-title">Размеры груза</div>
+          <div class="dims-grid">
+            <div class="input-group">
+              <label>Длина</label>
+              <input type="number" id="dim-l" placeholder="0" min="1" oninput="calcPrice()">
+              <span class="input-unit">см</span>
+            </div>
+            <div class="input-group">
+              <label>Ширина</label>
+              <input type="number" id="dim-w" placeholder="0" min="1" oninput="calcPrice()">
+              <span class="input-unit">см</span>
+            </div>
+            <div class="input-group">
+              <label>Высота</label>
+              <input type="number" id="dim-h" placeholder="0" min="1" oninput="calcPrice()">
+              <span class="input-unit">см</span>
+            </div>
+          </div>
+          <div class="two-col">
+            <div class="input-group">
+              <label>Вес</label>
+              <input type="number" id="dim-weight" placeholder="0" min="0.1" step="0.1" oninput="calcPrice()">
+              <span class="input-unit">кг</span>
+            </div>
+            <div class="input-group">
+              <label>Расстояние</label>
+              <input type="number" id="dim-dist" placeholder="0" min="1" oninput="calcPrice()">
+              <span class="input-unit">км</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Urgency -->
+        <div class="card">
+          <div class="card-title">Срочность доставки</div>
+          <div class="urgency-grid">
+            <button class="urgency-btn" data-urgency="5" data-mult="1.0" onclick="selectUrgency(this)">
+              Дождусь<span class="urg-mult">базовая цена</span>
+            </button>
+            <button class="urgency-btn" data-urgency="5" data-mult="1.1" onclick="selectUrgency(this)">
+              5 дней<span class="urg-mult">×1.1</span>
+            </button>
+            <button class="urgency-btn" data-urgency="3" data-mult="1.3" onclick="selectUrgency(this)">
+              3 дня<span class="urg-mult">×1.3</span>
+            </button>
+            <button class="urgency-btn" data-urgency="2" data-mult="1.6" onclick="selectUrgency(this)">
+              2 дня<span class="urg-mult">×1.6</span>
+            </button>
+            <button class="urgency-btn selected" data-urgency="1" data-mult="2.3" onclick="selectUrgency(this)">
+              Завтра<span class="urg-mult">×2.3</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Result -->
+      <div class="result-card">
+        <div class="card-title">Стоимость доставки</div>
+
+        <div id="discount-area" style="display:none; text-align:center">
+          <div class="discount-badge" id="discount-text">🎉 Скидка применена</div>
+        </div>
+
+        <div class="price-display">
+          <div class="price-label">Итоговая цена</div>
+          <div class="price-amount"><span id="price-val">—</span><span class="price-currency"> ₽</span></div>
+        </div>
+
+        <div class="price-breakdown" id="breakdown">
+          <div class="breakdown-row"><span>Объёмный вес</span><span class="val" id="br-vol">—</span></div>
+          <div class="breakdown-row"><span>Расчётный вес</span><span class="val" id="br-charg">—</span></div>
+          <div class="breakdown-row"><span>Базовая цена</span><span class="val" id="br-base">—</span></div>
+          <div class="breakdown-row"><span>Коэф. срочности</span><span class="val" id="br-urg">—</span></div>
+          <div class="breakdown-row" id="br-promo-row" style="display:none"><span>Промокод</span><span class="val" id="br-promo-val" style="color:var(--success)">—</span></div>
+          <div class="breakdown-row" id="br-disc-row" style="display:none"><span>Скидка</span><span class="val" id="br-disc-val" style="color:var(--success)">—</span></div>
+        </div>
+
+        <div class="promo-section">
+          <input class="promo-input" type="text" id="promo-field" placeholder="Промокод" oninput="calcPrice()">
+          <button class="btn btn-outline btn-sm" onclick="applyPromo()">Применить</button>
+        </div>
+
+        <button class="btn btn-primary" onclick="placeOrder()" id="order-btn" disabled>
+          📦 Оформить заказ
+        </button>
+
+        <div class="divider"></div>
+
+        <!-- Loyalty info -->
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px">Уровень лояльности</div>
+        <div class="tier-badge tier-new" id="loyalty-badge">🆕 Новичок</div>
+        <div class="loyalty-bar">
+          <div class="loyalty-fill" id="loyalty-fill" style="width:0%"></div>
+        </div>
+        <div class="loyalty-info">
+          <span id="loyalty-orders">0 заказов</span>
+          <span id="loyalty-next"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILE SECTION -->
+  <div class="main-container" id="section-profile" style="display:none">
+    <div class="profile-grid">
+      <!-- LEFT: User info -->
+      <div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="profile-avatar-big" id="profile-avatar-big">?</div>
+          <div class="profile-name" id="profile-name">Имя</div>
+          <div class="profile-email" id="profile-email">email</div>
+          <div class="tier-badge" id="profile-tier">🆕 Новичок</div>
+          <div class="stat-row">
+            <div class="stat-box">
+              <div class="stat-val" id="stat-orders">0</div>
+              <div class="stat-lbl">Заказов</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-val" id="stat-discount">—</div>
+              <div class="stat-lbl">Скидка</div>
+            </div>
+          </div>
+          <div class="info-row">
+            <span class="label">Зарегистрирован</span>
+            <span class="value" id="profile-since">—</span>
+          </div>
+          <div class="divider" style="margin:12px 0"></div>
+          <button class="btn btn-danger" style="width:100%" onclick="doLogout()">Выйти из аккаунта</button>
+        </div>
+
+        <!-- Promo codes -->
+        <div class="card">
+          <div class="section-header">
+            <div class="section-title" style="font-size:20px">Промокоды</div>
+          </div>
+          <div id="promo-list-profile" class="promo-list">
+            <div class="empty-state"><div class="empty-icon">🎟️</div>Нет доступных промокодов</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: History -->
+      <div class="card">
+        <div class="section-header">
+          <div class="section-title">История заказов</div>
+          <span class="tag" id="history-count">0 / 15</span>
+        </div>
+        <div id="history-list" class="history-list">
+          <div class="empty-state"><div class="empty-icon">📦</div>История заказов пуста</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toasts"></div>
+
+<script>
+// ============================================================
+//  DATABASE (localStorage)
+// ============================================================
+const DB = {
+  getUsers: () => JSON.parse(localStorage.getItem('cm_users') || '{}'),
+  saveUsers: u => localStorage.setItem('cm_users', JSON.stringify(u)),
+  getSession: () => JSON.parse(localStorage.getItem('cm_session') || 'null'),
+  saveSession: s => localStorage.setItem('cm_session', JSON.stringify(s)),
+  clearSession: () => localStorage.removeItem('cm_session'),
+
+  getUser(email) { return this.getUsers()[email] || null; },
+
+  createUser(name, email, pass) {
+    const users = this.getUsers();
+    if (users[email]) return false;
+    users[email] = {
+      name, email, pass,
+      createdAt: new Date().toLocaleDateString('ru-RU'),
+      orders: [],
+      promoCodes: [
+        { code: 'WELCOME25', discount: 25, expiry: addDays(30), used: false, label: 'Приветственная скидка' }
+      ]
+    };
+    this.saveUsers(users);
+    return true;
+  },
+
+  updateUser(email, data) {
+    const users = this.getUsers();
+    if (!users[email]) return;
+    Object.assign(users[email], data);
+    this.saveUsers(users);
+  }
+};
+
+function addDays(n) {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.toLocaleDateString('ru-RU');
+}
+
+// ============================================================
+//  STATE
+// ============================================================
+let currentUser = null;
+let selectedUrgency = { mult: 2.3, label: 'Завтра' };
+let appliedPromo = null;
+
+// ============================================================
+//  INIT
+// ============================================================
+(function init() {
+  const session = DB.getSession();
+  if (session) {
+    const user = DB.getUser(session.email);
+    if (user) {
+      currentUser = user;
+      showApp();
+      return;
+    }
+  }
+  showPage('auth');
+})();
+
+// ============================================================
+//  AUTH
+// ============================================================
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((b,i) => b.classList.toggle('active', i === (tab==='login'?0:1)));
+  document.getElementById('form-login').classList.toggle('active', tab==='login');
+  document.getElementById('form-register').classList.toggle('active', tab==='register');
+}
+
+function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  const err = document.getElementById('login-error');
+  err.style.display = 'none';
+
+  const user = DB.getUser(email);
+  if (!user || user.pass !== pass) {
+    err.textContent = 'Неверный email или пароль';
+    err.style.display = 'block';
+    return;
+  }
+
+  currentUser = user;
+  DB.saveSession({ email });
+  showApp();
+  toast('Добро пожаловать, ' + user.name + '!', 'success');
+}
+
+function doRegister() {
+  const name = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const pass = document.getElementById('reg-pass').value;
+  const err = document.getElementById('reg-error');
+  err.style.display = 'none';
+
+  if (!name || !email || !pass) { err.textContent = 'Заполните все поля'; err.style.display='block'; return; }
+  if (pass.length < 6) { err.textContent = 'Пароль минимум 6 символов'; err.style.display='block'; return; }
+  if (!/\S+@\S+\.\S+/.test(email)) { err.textContent = 'Некорректный email'; err.style.display='block'; return; }
+
+  if (!DB.createUser(name, email, pass)) {
+    err.textContent = 'Email уже зарегистрирован';
+    err.style.display = 'block';
+    return;
+  }
+
+  currentUser = DB.getUser(email);
+  DB.saveSession({ email });
+  showApp();
+  toast('Аккаунт создан! У вас есть промокод WELCOME25 🎉', 'success');
+}
+
+function doLogout() {
+  currentUser = null;
+  DB.clearSession();
+  showPage('auth');
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-pass').value = '';
+}
+
+// ============================================================
+//  NAVIGATION
+// ============================================================
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+}
+
+function showApp() {
+  showPage('app');
+  updateNavbar();
+  showSection('calculator');
+}
+
+function showSection(sec) {
+  document.getElementById('section-calculator').style.display = sec==='calculator' ? 'block' : 'none';
+  document.getElementById('section-profile').style.display = sec==='profile' ? 'block' : 'none';
+  document.getElementById('nav-calc').classList.toggle('active', sec==='calculator');
+  document.getElementById('nav-profile').classList.toggle('active', sec==='profile');
+  if (sec==='profile') renderProfile();
+  calcPrice();
+}
+
+function updateNavbar() {
+  if (!currentUser) return;
+  const initials = currentUser.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('nav-avatar').textContent = initials;
+  document.getElementById('nav-username').textContent = currentUser.name.split(' ')[0];
+}
+
+// ============================================================
+//  PRICING ENGINE
+// ============================================================
+
+// Rate logic:
+// 1. Volumetric weight = L*W*H / 5000 (standard logistics formula, result in kg)
+// 2. Chargeable weight = max(actual weight, volumetric weight)
+// 3. Base rate = 0.04 ₽ per kg per km
+// 4. Loading surcharge: +100₽ per each 50kg of chargeable weight
+// 5. Minimum price = 350₽
+// 6. Apply urgency multiplier
+// 7. Apply loyalty discount
+// 8. Apply promo code
+
+const RATE_PER_KG_KM = 0.04;    // ₽ per kg per km
+const LOADING_PER_50KG = 100;   // ₽ surcharge per 50kg
+const MIN_PRICE = 350;
+
+function getVolumetricWeight(l, w, h) {
+  return (l * w * h) / 5000;
+}
+
+function getLoyaltyDiscount(orders) {
+  if (orders === 0) return { label: null, pct: 0 };
+  if (orders === 1) return { label: '🎉 Скидка за первый заказ', pct: 25 };
+  if (orders < 5)  return { label: '⭐ Постоянный клиент', pct: 10 };
+  if (orders < 10) return { label: '💎 Серебряный клиент', pct: 20 };
+  return { label: '👑 VIP клиент', pct: 40 };
+}
+
+function getTierInfo(orders) {
+  if (orders === 0) return { badge: '🆕 Новичок', cls: 'tier-new', next: 'Первый заказ даст скидку 25%', fill: 0 };
+  if (orders < 5)  return { badge: '⭐ Постоянный', cls: 'tier-regular', next: `До Серебра: ${5-orders} заказов`, fill: (orders/5)*100 };
+  if (orders < 10) return { badge: '💎 Серебро', cls: 'tier-regular', next: `До VIP: ${10-orders} заказов`, fill: (orders/10)*100 };
+  return { badge: '👑 VIP', cls: 'tier-vip', next: 'Максимальный уровень', fill: 100 };
+}
+
+function validatePromoCode(code) {
+  if (!currentUser || !code) return null;
+  const user = DB.getUser(currentUser.email);
+  const promo = user.promoCodes.find(p => p.code === code.toUpperCase().trim());
+  if (!promo) return null;
+  if (promo.used) return { error: 'Промокод уже использован' };
+
+  // Check expiry
+  const today = new Date();
+  const [d,m,y] = promo.expiry.split('.').map(Number);
+  const expDate = new Date(y, m-1, d);
+  if (today > expDate) return { error: 'Срок действия промокода истёк' };
+
+  return { discount: promo.discount, label: promo.label };
+}
+
+function calcPrice() {
+  if (!currentUser) return;
+
+  const l = parseFloat(document.getElementById('dim-l').value) || 0;
+  const w = parseFloat(document.getElementById('dim-w').value) || 0;
+  const h = parseFloat(document.getElementById('dim-h').value) || 0;
+  const weight = parseFloat(document.getElementById('dim-weight').value) || 0;
+  const dist = parseFloat(document.getElementById('dim-dist').value) || 0;
+
+  const orderBtn = document.getElementById('order-btn');
+
+  if (!l || !w || !h || !weight || !dist) {
+    document.getElementById('price-val').textContent = '—';
+    document.getElementById('br-vol').textContent = '—';
+    document.getElementById('br-charg').textContent = '—';
+    document.getElementById('br-base').textContent = '—';
+    document.getElementById('br-urg').textContent = '—';
+    orderBtn.disabled = true;
+    updateLoyaltyDisplay();
+    return;
+  }
+
+  // Calc
+  const volWeight = getVolumetricWeight(l, w, h);
+  const chargWeight = Math.max(weight, volWeight);
+  const transportCost = chargWeight * dist * RATE_PER_KG_KM;
+  const loadingSurcharge = Math.floor(chargWeight / 50) * LOADING_PER_50KG;
+  let base = Math.max(transportCost + loadingSurcharge, MIN_PRICE);
+  base = Math.round(base);
+
+  const urgMultiplier = selectedUrgency.mult;
+  let afterUrgency = Math.round(base * urgMultiplier);
+
+  // Loyalty
+  const user = DB.getUser(currentUser.email);
+  const loyDisc = getLoyaltyDiscount(user.orders.length);
+
+  // Promo
+  const promoCode = document.getElementById('promo-field').value;
+  let promoDiscount = 0;
+  let finalAfterLoy = afterUrgency;
+
+  if (loyDisc.pct > 0) {
+    finalAfterLoy = Math.round(afterUrgency * (1 - loyDisc.pct / 100));
+  }
+
+  let finalPrice = finalAfterLoy;
+
+  if (promoCode) {
+    const promoResult = validatePromoCode(promoCode);
+    if (promoResult && !promoResult.error) {
+      promoDiscount = promoResult.discount;
+      finalPrice = Math.round(finalAfterLoy * (1 - promoDiscount / 100));
+    }
+  }
+
+  // Update UI
+  document.getElementById('price-val').textContent = finalPrice.toLocaleString('ru-RU');
+  document.getElementById('br-vol').textContent = volWeight.toFixed(1) + ' кг';
+  document.getElementById('br-charg').textContent = chargWeight.toFixed(1) + ' кг';
+  document.getElementById('br-base').textContent = base.toLocaleString('ru-RU') + ' ₽';
+  document.getElementById('br-urg').textContent = '×' + urgMultiplier + ' (' + selectedUrgency.label + ')';
+
+  const discArea = document.getElementById('discount-area');
+  const discText = document.getElementById('discount-text');
+  const brDiscRow = document.getElementById('br-disc-row');
+  const brDiscVal = document.getElementById('br-disc-val');
+  const brPromoRow = document.getElementById('br-promo-row');
+  const brPromoVal = document.getElementById('br-promo-val');
+
+  if (loyDisc.pct > 0) {
+    discArea.style.display = 'block';
+    discText.textContent = loyDisc.label + ' −' + loyDisc.pct + '%';
+    brDiscRow.style.display = 'flex';
+    brDiscVal.textContent = '−' + loyDisc.pct + '%  (−' + (afterUrgency - finalAfterLoy).toLocaleString('ru-RU') + ' ₽)';
+  } else {
+    discArea.style.display = 'none';
+    brDiscRow.style.display = 'none';
+  }
+
+  if (promoDiscount > 0) {
+    brPromoRow.style.display = 'flex';
+    brPromoVal.textContent = '−' + promoDiscount + '%  (−' + (finalAfterLoy - finalPrice).toLocaleString('ru-RU') + ' ₽)';
+  } else {
+    brPromoRow.style.display = 'none';
+  }
+
+  orderBtn.disabled = false;
+  updateLoyaltyDisplay();
+
+  return { finalPrice, l, w, h, weight, dist, base, urgMultiplier, loyDisc, promoDiscount };
+}
+
+function selectUrgency(btn) {
+  document.querySelectorAll('.urgency-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedUrgency = {
+    mult: parseFloat(btn.dataset.mult),
+    label: btn.textContent.trim().split('\n')[0].trim()
+  };
+  calcPrice();
+}
+
+function applyPromo() {
+  const code = document.getElementById('promo-field').value.trim();
+  if (!code) return;
+  const result = validatePromoCode(code);
+  if (!result) { toast('Промокод не найден', 'error'); return; }
+  if (result.error) { toast(result.error, 'error'); return; }
+  toast('Промокод применён! Скидка ' + result.discount + '% 🎉', 'success');
+  calcPrice();
+}
+
+// ============================================================
+//  ORDER PLACEMENT
+// ============================================================
+function placeOrder() {
+  const l = parseFloat(document.getElementById('dim-l').value) || 0;
+  const w = parseFloat(document.getElementById('dim-w').value) || 0;
+  const h = parseFloat(document.getElementById('dim-h').value) || 0;
+  const weight = parseFloat(document.getElementById('dim-weight').value) || 0;
+  const dist = parseFloat(document.getElementById('dim-dist').value) || 0;
+  if (!l || !w || !h || !weight || !dist) { toast('Заполните все поля', 'error'); return; }
+
+  const data = calcPrice();
+  if (!data) return;
+
+  const user = DB.getUser(currentUser.email);
+
+  // Use promo
+  const promoCode = document.getElementById('promo-field').value.trim();
+  if (promoCode) {
+    const promoResult = validatePromoCode(promoCode);
+    if (promoResult && !promoResult.error) {
+      const idx = user.promoCodes.findIndex(p => p.code === promoCode.toUpperCase());
+      if (idx !== -1) user.promoCodes[idx].used = true;
+    }
+  }
+
+  // Add order
+  const order = {
+    id: Date.now(),
+    date: new Date().toLocaleDateString('ru-RU'),
+    dims: { l, w, h },
+    weight,
+    dist,
+    urgency: selectedUrgency.label,
+    price: data.finalPrice,
+    discount: data.loyDisc.pct,
+    promoDiscount: data.promoDiscount
+  };
+
+  user.orders.unshift(order);
+  if (user.orders.length > 15) user.orders = user.orders.slice(0, 15);
+
+  // Award promo for milestones
+  const orderCount = user.orders.length;
+  if (orderCount === 3) {
+    user.promoCodes.push({ code: 'LOYAL10', discount: 10, expiry: addDays(60), used: false, label: '3 заказа — специальная скидка' });
+    toast('🎁 Вам начислен промокод LOYAL10 за 3 заказа!', 'success');
+  }
+  if (orderCount === 5) {
+    user.promoCodes.push({ code: 'SILVER20', discount: 20, expiry: addDays(90), used: false, label: 'Серебряный уровень' });
+    toast('💎 Вы достигли Серебряного уровня! Промокод SILVER20 добавлен', 'success');
+  }
+  if (orderCount === 10) {
+    user.promoCodes.push({ code: 'VIP40', discount: 40, expiry: addDays(180), used: false, label: 'VIP клиент' });
+    toast('👑 Вы VIP клиент! Промокод VIP40 добавлен', 'success');
+  }
+
+  DB.updateUser(currentUser.email, { orders: user.orders, promoCodes: user.promoCodes });
+  currentUser = DB.getUser(currentUser.email);
+
+  toast('Заказ оформлен! ' + data.finalPrice.toLocaleString('ru-RU') + ' ₽ 🚛', 'success');
+
+  // Reset
+  ['dim-l','dim-w','dim-h','dim-weight','dim-dist'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('promo-field').value = '';
+  document.getElementById('price-val').textContent = '—';
+  document.getElementById('order-btn').disabled = true;
+  document.getElementById('discount-area').style.display = 'none';
+  document.getElementById('br-disc-row').style.display = 'none';
+  document.getElementById('br-promo-row').style.display = 'none';
+  updateLoyaltyDisplay();
+}
+
+// ============================================================
+//  LOYALTY DISPLAY
+// ============================================================
+function updateLoyaltyDisplay() {
+  if (!currentUser) return;
+  const user = DB.getUser(currentUser.email);
+  const count = user.orders.length;
+  const tier = getTierInfo(count);
+
+  const badge = document.getElementById('loyalty-badge');
+  badge.textContent = tier.badge;
+  badge.className = 'tier-badge ' + tier.cls;
+  document.getElementById('loyalty-fill').style.width = tier.fill + '%';
+  document.getElementById('loyalty-orders').textContent = count + ' заказов';
+  document.getElementById('loyalty-next').textContent = tier.next;
+}
+
+// ============================================================
+//  PROFILE
+// ============================================================
+function renderProfile() {
+  if (!currentUser) return;
+  const user = DB.getUser(currentUser.email);
+  const count = user.orders.length;
+  const tier = getTierInfo(count);
+  const loyDisc = getLoyaltyDiscount(count);
+
+  const initials = user.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('profile-avatar-big').textContent = initials;
+  document.getElementById('profile-name').textContent = user.name;
+  document.getElementById('profile-email').textContent = user.email;
+  document.getElementById('profile-since').textContent = user.createdAt;
+  document.getElementById('stat-orders').textContent = count;
+  document.getElementById('stat-discount').textContent = loyDisc.pct > 0 ? loyDisc.pct + '%' : '—';
+
+  const tierBadge = document.getElementById('profile-tier');
+  tierBadge.textContent = tier.badge;
+  tierBadge.className = 'tier-badge ' + tier.cls;
+
+  // History
+  const histList = document.getElementById('history-list');
+  document.getElementById('history-count').textContent = count + ' / 15';
+
+  if (count === 0) {
+    histList.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div>История заказов пуста</div>';
+  } else {
+    histList.innerHTML = user.orders.map((o, i) => `
+      <div class="history-item">
+        <div class="history-num">#${i+1}</div>
+        <div class="history-info">
+          <div class="history-dims">${o.dims.l}×${o.dims.w}×${o.dims.h} см · ${o.weight} кг · ${o.dist} км</div>
+          <div class="history-meta">${o.date} · Срочность: ${o.urgency}${o.discount ? ' · Скидка: −'+o.discount+'%' : ''}${o.promoDiscount ? ' · Промо: −'+o.promoDiscount+'%' : ''}</div>
+        </div>
+        <div class="history-price">${o.price.toLocaleString('ru-RU')} ₽</div>
+      </div>
+    `).join('');
+  }
+
+  // Promos
+  const promoList = document.getElementById('promo-list-profile');
+  if (!user.promoCodes || user.promoCodes.length === 0) {
+    promoList.innerHTML = '<div class="empty-state"><div class="empty-icon">🎟️</div>Нет промокодов</div>';
+  } else {
+    const today = new Date();
+    promoList.innerHTML = user.promoCodes.map(p => {
+      const [d,m,y] = p.expiry.split('.').map(Number);
+      const expDate = new Date(y, m-1, d);
+      const isExpired = today > expDate;
+      const cls = p.used ? 'promo-used' : (isExpired ? 'promo-expired' : '');
+      const statusText = p.used ? 'Использован' : (isExpired ? 'Истёк' : 'Действует до ' + p.expiry);
+      return `
+        <div class="promo-item ${cls}">
+          <div>
+            <div class="promo-code">${p.code}</div>
+            <div class="promo-meta">${p.label} · ${statusText}</div>
+          </div>
+          <div class="promo-discount">−${p.discount}%</div>
+        </div>
+      `;
+    }).join('');
+  }
+}
+
+// ============================================================
+//  TOAST
+// ============================================================
+function toast(msg, type = 'info') {
+  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.innerHTML = `<span>${icons[type]}</span><span>${msg}</span>`;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+// First urgency selection - init
+document.querySelector('.urgency-btn.selected') && (selectedUrgency = {
+  mult: parseFloat(document.querySelector('.urgency-btn.selected').dataset.mult),
+  label: document.querySelector('.urgency-btn.selected').textContent.trim().split('\n')[0].trim()
+});
+</script>
+</body>
+</html>
